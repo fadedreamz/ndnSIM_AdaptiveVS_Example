@@ -56,65 +56,26 @@ FileDownloadStartedTrace(Ptr<ns3::ndn::App> app, shared_ptr<const ndn::Name> int
 int
 main(int argc, char* argv[])
 {
-  //std::string confFile = "brite.conf";
-  std::string confFile = "/home/fadedreamz/ndnSIM_Streaming/BRITE/conf_files/brite.conf";
-
   // Read optional command-line parameters (e.g., enable visualizer with ./waf --run=<> --visualize
   CommandLine cmd;
-  cmd.AddValue ("briteConfFile", "BRITE configuration file", confFile);
   cmd.Parse(argc, argv);
 
   // Create NDN Stack
   ndn::StackHelper ndnHelper;
-
-  // Create Brite Topology Helper
-  ndn::NDNBriteHelper bth (confFile);
-  bth.AssignStreams (3);
-  // tell the topology helper to build the topology 
-  bth.BuildBriteTopology ();
 
   // Separate clients, servers and routers
   NodeContainer client;
   NodeContainer server;
   NodeContainer router;
 
-  uint32_t sumLeafNodes = 0;
+  client.Create(2);
+  server.Create(1);
+  router.Create(1);
 
-
-  for (uint32_t i = 0; i < bth.GetNAs(); i++)
-  {
-    std::cout << "Number of nodes for AS: " << bth.GetNNodesForAs(i) << ", non leaf nodes: " << bth.GetNNonLeafNodesForAs(i) << std::endl;
-    for(uint32_t node=0; node < bth.GetNNonLeafNodesForAs(i); node++)
-    {
-      std::cout << "Node " << node << " has " << bth.GetNonLeafNodeForAs(i,node)->GetNDevices() << " devices " << std::endl;
-      //container.Add (briteHelper->GetNodeForAs (ASnumber,node));
-      router.Add(bth.GetNonLeafNodeForAs(i,node));
-    }
-  }
-
-  for (uint32_t i = 0; i < bth.GetNAs(); i++)
-  {
-    uint32_t numLeafNodes = bth.GetNLeafNodesForAs(i);
-
-    std::cout << "AS " << i << " has " << numLeafNodes << "leaf nodes! " << std::endl;
-
-    for (uint32_t j= 0; j < numLeafNodes; j++)
-    {
-      if (i * 100 + j % 50 == 0) // some strategy to decide whether this node should be a server or a client
-      {
-        server.Add(bth.GetLeafNodeForAs(i,j));
-      }
-      else
-      {
-        client.Add(bth.GetLeafNodeForAs(i,j));
-      }
-    }
-
-    sumLeafNodes+= numLeafNodes;
-  }
-
-  std::cout << "Total Number of leaf nodes: " << sumLeafNodes << std::endl;
-
+  PointToPointHelper p2p;
+  p2p.Install(client.Get(0), router.Get(0));
+  p2p.Install(client.Get(1), router.Get(0));
+  p2p.Install(router.Get(0), server.Get(0));
 
   // clients do not really need a large content store, but it could be beneficial to give them some
   ndnHelper.SetOldContentStore ("ns3::ndn::cs::Stats::Lru","MaxSize", "100");
@@ -134,6 +95,7 @@ main(int argc, char* argv[])
   ndn::StrategyChoiceHelper::InstallAll("/myprefix", "/localhost/nfd/strategy/best-route");
   // ndn::StrategyChoiceHelper::InstallAll("/prefix", "/localhost/nfd/strategy/broadcast");
 
+  
 
   // Installing global routing interface on all nodes
   ndn::GlobalRoutingHelper ndnGlobalRoutingHelper;
@@ -165,7 +127,7 @@ main(int argc, char* argv[])
     std::cout << "Client " << i << " is Node " << client[i]->GetId() << std::endl;
 
     // Start and stop the consumer
-    for(uint32_t i = 1; consumer.GetN(); i++) {
+    for(uint32_t i = 1; i < consumer.GetN(); i++) {
     	Ptr<Application> app = consumer.Get(i);
         app->SetStartTime(Seconds(1.0));
         //consumer.Start (Seconds(1.0)); // TODO: Start at randomized time
